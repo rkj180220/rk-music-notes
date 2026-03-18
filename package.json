@@ -1,0 +1,14 @@
+{
+  "name": "chordbook",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev":    "vite",
+    "build":  "vite build",
+    "export": "vite build && cp dist/index.html dist/ChordBook.html && echo '\\n✅  dist/ChordBook.html is ready — send it to your phone!'"
+  },
+  "devDependencies": {
+    "vite": "^5.4.0",
+    "vite-plugin-singlefile": "^2.0.0"
+  }
+}

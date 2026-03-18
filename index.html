@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <title>ChordBook</title>
+  <link rel="stylesheet" href="css/style.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
+</head>
+<body class="dark">
+<div id="app">
+
+  <!-- ═══════════════════════════════════════════════════════
+       LIBRARY VIEW
+  ════════════════════════════════════════════════════════ -->
+  <div id="view-library" class="view active">
+    <header class="top-bar">
+      <div class="brand">
+        <span class="brand-icon">🎼</span>
+        <h1 class="brand-name">ChordBook</h1>
+      </div>
+      <div class="header-actions">
+        <button id="btn-theme" class="icon-btn" title="Toggle theme">🌙</button>
+      </div>
+    </header>
+
+    <div class="search-wrap">
+      <input type="search" id="search-input" placeholder="Search songs, artists, bands, gigs…" autocomplete="off" />
+    </div>
+
+    <!-- Filter bar: bands + gigs -->
+    <div id="filter-bar" class="filter-bar hidden">
+      <div class="filter-section" id="filter-bands-section">
+        <span class="filter-label">🎸 Bands</span>
+        <div id="filter-bands" class="filter-pills"></div>
+      </div>
+      <div class="filter-section" id="filter-gigs-section">
+        <span class="filter-label">📅 Gigs</span>
+        <div id="filter-gigs" class="filter-pills"></div>
+      </div>
+      <button id="btn-clear-filters" class="clear-filters-btn hidden">✕ Clear filters</button>
+    </div>
+
+    <div id="song-list" class="song-list"></div>
+
+    <div id="empty-state" class="empty-state hidden">
+      <div class="empty-icon">🎵</div>
+      <p>No chord sheets yet.</p>
+      <p class="empty-sub">Tap <strong>+</strong> to add your first song.</p>
+    </div>
+
+    <button id="btn-add-song" class="fab" title="New song">+</button>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════
+       SONG VIEW
+  ════════════════════════════════════════════════════════ -->
+  <div id="view-song" class="view hidden">
+    <header class="top-bar">
+      <button id="btn-back-song" class="icon-btn" title="Back">←</button>
+      <div class="song-header-info">
+        <h2 id="song-view-title" class="song-title-header"></h2>
+        <span id="song-view-artist" class="song-artist-header"></span>
+      </div>
+      <div class="header-actions">
+        <button id="btn-edit-song" class="icon-btn" title="Edit">✏️</button>
+        <button id="btn-print-song" class="icon-btn no-print" title="Print / PDF">🖨️</button>
+      </div>
+    </header>
+
+    <!-- Meta row: Key, Time Sig, BPM -->
+    <div class="song-meta-bar">
+      <div class="meta-item">
+        <span class="meta-label">Key</span>
+        <span id="display-key" class="meta-value key-badge"></span>
+      </div>
+      <div class="meta-item">
+        <span class="meta-label">Time</span>
+        <span id="display-time" class="meta-value"></span>
+      </div>
+      <div class="meta-item" id="meta-tempo">
+        <span class="meta-label">BPM</span>
+        <span id="display-tempo" class="meta-value"></span>
+      </div>
+      <div class="meta-item meta-notes-item hidden" id="meta-notes-wrap">
+        <span class="meta-label">Notes</span>
+        <span id="display-notes" class="meta-value meta-notes"></span>
+      </div>
+    </div>
+    <!-- Tags row (bands + gigs) -->
+    <div id="song-tags-bar" class="song-tags-bar hidden">
+      <div id="song-tags-inner" class="song-tags-inner"></div>
+    </div>
+
+    <!-- Transpose controls -->
+    <div class="transpose-bar no-print">
+      <span class="transpose-label">Transpose</span>
+      <div class="transpose-group">
+        <button id="btn-transpose-down" class="transpose-btn" title="Down 1 semitone">−1</button>
+        <div class="transpose-display">
+          <span id="transpose-steps">+0</span>
+          <span class="transpose-unit">st</span>
+        </div>
+        <button id="btn-transpose-up" class="transpose-btn" title="Up 1 semitone">+1</button>
+      </div>
+      <button id="btn-transpose-reset" class="transpose-reset-btn">Reset</button>
+      <div class="key-jump">
+        <span class="meta-label">Jump to key</span>
+        <select id="select-key"></select>
+      </div>
+    </div>
+
+    <!-- Chord sheet canvas -->
+    <div id="chord-sheet" class="chord-sheet"></div>
+
+    <!-- Font size controls (fixed bottom-right) -->
+    <div class="font-controls no-print">
+      <button id="btn-font-down" class="font-btn" title="Smaller text">A−</button>
+      <button id="btn-font-up" class="font-btn" title="Larger text">A+</button>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════
+       EDITOR VIEW
+  ════════════════════════════════════════════════════════ -->
+  <div id="view-editor" class="view hidden">
+    <header class="top-bar">
+      <button id="btn-back-editor" class="icon-btn">←</button>
+      <h2 class="page-title" id="editor-title">New Song</h2>
+      <div class="header-actions">
+        <button id="btn-save-song" class="save-btn">Save</button>
+      </div>
+    </header>
+
+    <div class="editor-form">
+      <!-- Row 1: Title + Artist -->
+      <div class="form-row two-col">
+        <div class="form-group">
+          <label for="input-title">Song Title <span class="required">*</span></label>
+          <input type="text" id="input-title" placeholder="e.g. Wonderful Tonight" autocomplete="off" />
+        </div>
+        <div class="form-group">
+          <label for="input-artist">Artist</label>
+          <input type="text" id="input-artist" placeholder="e.g. Eric Clapton" autocomplete="off" />
+        </div>
+      </div>
+
+      <!-- Row 2: Key, Time Sig, BPM -->
+      <div class="form-row three-col">
+        <div class="form-group">
+          <label for="input-key">Key</label>
+          <select id="input-key">
+            <option value="C">C</option>
+            <option value="Db">C# / D♭</option>
+            <option value="D">D</option>
+            <option value="Eb">D# / E♭</option>
+            <option value="E">E</option>
+            <option value="F">F</option>
+            <option value="F#">F# / G♭</option>
+            <option value="G" selected>G</option>
+            <option value="Ab">G# / A♭</option>
+            <option value="A">A</option>
+            <option value="Bb">A# / B♭</option>
+            <option value="B">B</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="input-time">Time Signature</label>
+          <select id="input-time">
+            <option value="4/4" selected>4/4</option>
+            <option value="3/4">3/4</option>
+            <option value="6/8">6/8</option>
+            <option value="2/4">2/4</option>
+            <option value="5/4">5/4</option>
+            <option value="7/8">7/8</option>
+            <option value="12/8">12/8</option>
+            <option value="2/2">2/2 (Cut)</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="input-tempo">Tempo (BPM)</label>
+          <input type="number" id="input-tempo" placeholder="120" min="20" max="320" />
+        </div>
+      </div>
+
+      <!-- Notes / comments -->
+      <div class="form-group">
+        <label for="input-notes">Performance Notes</label>
+        <input type="text" id="input-notes" placeholder="e.g. Capo 2 · Shuffle feel · Key change at bridge" autocomplete="off" />
+      </div>
+
+      <!-- Row 3: Band + Gig Tags -->
+      <div class="form-row two-col">
+        <div class="form-group">
+          <label for="input-band">Band / Project</label>
+          <input type="text" id="input-band" placeholder="e.g. The Groove Band" autocomplete="off" />
+          <div class="tag-hint">Separate multiple bands with a comma</div>
+        </div>
+        <div class="form-group">
+          <label>Gig Tags</label>
+          <div class="tag-input-wrap">
+            <div id="gig-tags-pills" class="tag-pills-row"></div>
+            <div class="tag-add-row">
+              <input type="text" id="input-gig-tag" placeholder="e.g. Summer Gig 2026-06-14" autocomplete="off" />
+              <button type="button" id="btn-add-gig-tag" class="tag-add-btn">+ Add</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Chord sheet textarea -->
+      <div class="form-group chord-input-group">
+        <div class="chord-label-row">
+          <label for="input-chord-sheet">Chord Sheet</label>
+          <button id="btn-help-toggle" class="help-toggle-btn">? Format Help</button>
+        </div>
+
+        <div id="format-help" class="format-help hidden">
+          <p><strong>Format Guide</strong></p>
+          <ul>
+            <li><code>[Section Name]</code> — starts a new section (Verse, Chorus, Bridge…)</li>
+            <li>Each line = one <em>row</em> of bars displayed together</li>
+            <li><code>|</code> — separates bars within a row</li>
+            <li>Chords within one bar: space-separated — <code>G Am</code> or <code>C Em Am F</code></li>
+            <li><code>%</code> — repeat previous bar (placeholder)</li>
+            <li><code>-</code> — empty bar / rest</li>
+            <li>Slash chords supported: <code>G/B</code>, <code>C/E</code></li>
+            <li>Extensions supported: <code>Cmaj7</code>, <code>Am7</code>, <code>G7</code>, <code>Dsus4</code>…</li>
+          </ul>
+          <pre>[Verse]
+G | D | Em | C
+G | D | C  | C
+
+[Chorus]
+C | D | G  | Em
+C | D | G  | G</pre>
+        </div>
+
+        <textarea
+          id="input-chord-sheet"
+          rows="20"
+          spellcheck="false"
+          autocorrect="off"
+          autocapitalize="off"
+          placeholder="[Verse]
+G | D | Em | C
+G | D | C  | C
+
+[Chorus]
+C | D | G  | Em
+C | D | G  | G"></textarea>
+      </div>
+    </div>
+  </div>
+
+</div><!-- #app -->
+
+<!-- ═══════════════════════════════════════════════════════
+     DELETE CONFIRM MODAL
+════════════════════════════════════════════════════════ -->
+<div id="modal-backdrop" class="modal-backdrop hidden">
+  <div class="modal" role="dialog" aria-modal="true">
+    <h3>Delete Song?</h3>
+    <p id="modal-message">This will permanently delete this chord sheet.</p>
+    <div class="modal-actions">
+      <button id="btn-modal-cancel" class="modal-btn secondary">Cancel</button>
+      <button id="btn-modal-confirm" class="modal-btn danger">Delete</button>
+    </div>
+  </div>
+</div>
+
+<script type="module" src="/js/app.js"></script>
+</body>
+</html>
