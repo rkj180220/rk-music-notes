@@ -87,6 +87,55 @@ export const Storage = {
     const demos = [
       {
         id: this.generateId(),
+        title: 'ARR Medley',
+        artist: 'AR Rahman',
+        key: 'C',
+        timeSignature: '4/4',
+        tempo: null,
+        notes: 'Medley: Netru Illaadha Maatram · Anjali · Chinna Chinna Aasai\nPop feel · Band: Aarohana',
+        bands: ['Aarohana'],
+        gigTags: [],
+        chordSheet:
+`[in]
+C F | Dm G x2
+
+[V - netru illaadha maatram]
+C F | Dm G | C F | Dm G | C Dm | C G/E | break
+
+[C]
+C F | C | C F | C
+C(stab) G(stab) | C(stab) F(stab) | C(stab) Bb(stab) | G | sustain
+
+[D]
+C | Bb | C Bb | F G | C x2
+C Bb F x2
+C Cm G x4
+Cm Fm | G | build
+
+[D]
+C | F G x2
+
+[V - Anjali]
+Am | F G | Am | F C/E | Am | E | Am | Fm | G
+G | C(stab)/E F(stab) G(stab) x4
+[BUILD]
+
+[C]
+C | G x2
+
+[V - chinna chinna aasai]
+C | Dm | C F | F G | C F G | C | G | break
+
+[C - chinna chinna aasai]
+C G | F | Gm x4
+F G | C G | break
+C(stab) G(stab) | C(stab) x3`,
+
+        createdAt: now,
+        updatedAt: now,
+      },
+      {
+        id: this.generateId(),
         title: 'Pop Ballad Demo',
         artist: 'Demo Song',
         key: 'G',
@@ -236,6 +285,33 @@ Ebmaj7 | Cm7 | Fm7 | Bb7`,
     ];
 
     demos.forEach(s => this.save(s));
+  },
+};
+
+/* ════════════════════════════════════════════════════════════
+   SET LIST STORAGE
+   Schema: { id, name, gigTag, songIds: string[], createdAt, updatedAt }
+════════════════════════════════════════════════════════════ */
+const SETLIST_KEY = 'chordbook_setlists_v1';
+
+export const SetListStorage = {
+  getAll() {
+    try { return JSON.parse(localStorage.getItem(SETLIST_KEY)) || []; }
+    catch { return []; }
+  },
+  get(id)       { return this.getAll().find(sl => sl.id === id); },
+  save(setlist) {
+    const all = this.getAll();
+    const idx = all.findIndex(sl => sl.id === setlist.id);
+    if (idx >= 0) all[idx] = setlist; else all.push(setlist);
+    localStorage.setItem(SETLIST_KEY, JSON.stringify(all));
+    return setlist;
+  },
+  delete(id) {
+    localStorage.setItem(SETLIST_KEY, JSON.stringify(this.getAll().filter(sl => sl.id !== id)));
+  },
+  generateId() {
+    return 'sl' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
   },
 };
 

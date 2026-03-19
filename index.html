@@ -23,7 +23,11 @@
         <h1 class="brand-name">ChordBook</h1>
       </div>
       <div class="header-actions">
-        <button id="btn-theme" class="icon-btn" title="Toggle theme">🌙</button>
+        <button id="btn-export"         class="icon-btn no-print" title="Export all songs as JSON">⬇</button>
+        <button id="btn-import-trigger" class="icon-btn no-print" title="Import songs from JSON">⬆</button>
+        <input  type="file" id="input-import-file" accept=".json" style="display:none" />
+        <button id="btn-setlists"       class="icon-btn no-print" title="Set Lists">📋</button>
+        <button id="btn-theme"          class="icon-btn" title="Toggle theme">🌙</button>
       </div>
     </header>
 
@@ -93,6 +97,14 @@
     <!-- Tags row (bands + gigs) -->
     <div id="song-tags-bar" class="song-tags-bar hidden">
       <div id="song-tags-inner" class="song-tags-inner"></div>
+    </div>
+
+    <!-- Set list navigation (visible only when performing a set list) -->
+    <div id="setlist-nav-bar" class="setlist-nav-bar hidden no-print">
+      <button id="btn-setlist-prev" class="setlist-nav-btn">&#8592; Prev</button>
+      <span   id="setlist-nav-label" class="setlist-nav-label">1 / 1</span>
+      <button id="btn-setlist-next" class="setlist-nav-btn">Next &#8594;</button>
+      <button id="btn-setlist-exit" class="setlist-exit-btn" title="Exit set list">&#10005; Set</button>
     </div>
 
     <!-- Transpose controls -->
@@ -219,24 +231,68 @@
         </div>
 
         <div id="format-help" class="format-help hidden">
-          <p><strong>Format Guide</strong></p>
-          <ul>
-            <li><code>[Section Name]</code> — starts a new section (Verse, Chorus, Bridge…)</li>
-            <li>Each line = one <em>row</em> of bars displayed together</li>
-            <li><code>|</code> — separates bars within a row</li>
-            <li>Chords within one bar: space-separated — <code>G Am</code> or <code>C Em Am F</code></li>
-            <li><code>%</code> — repeat previous bar (placeholder)</li>
-            <li><code>-</code> — empty bar / rest</li>
-            <li>Slash chords supported: <code>G/B</code>, <code>C/E</code></li>
-            <li>Extensions supported: <code>Cmaj7</code>, <code>Am7</code>, <code>G7</code>, <code>Dsus4</code>…</li>
-          </ul>
-          <pre>[Verse]
-G | D | Em | C
-G | D | C  | C
 
-[Chorus]
-C | D | G  | Em
-C | D | G  | G</pre>
+          <div class="fh-group">
+            <div class="fh-group-title">Sections</div>
+            <div class="fh-rows">
+              <div class="fh-row"><code>[Verse]</code><span>New section with full name</span></div>
+              <div class="fh-row"><code>[V]</code> <code>[C]</code> <code>[B]</code> <code>[in]</code> <code>[O]</code> <code>[D]</code> <code>[PC]</code><span>Short → Verse / Chorus / Bridge / Intro / Outro / D / Pre-Chorus</span></div>
+              <div class="fh-row"><code>[V - Anjali]</code><span>Section + mash-up song subtitle</span></div>
+            </div>
+          </div>
+
+          <div class="fh-group">
+            <div class="fh-group-title">Bars &amp; Chords</div>
+            <div class="fh-rows">
+              <div class="fh-row"><code>C | Am | F | G</code><span>Bars separated by <code>|</code></span></div>
+              <div class="fh-row"><code>C Em</code><span>Two chords in one bar (space-separated)</span></div>
+              <div class="fh-row"><code>G/B</code> <code>C/E</code><span>Slash / bass-note chords</span></div>
+              <div class="fh-row"><code>Cmaj7</code> <code>Am7</code> <code>Dsus4</code><span>Extensions — write freely</span></div>
+              <div class="fh-row"><code>-</code><span>Empty bar / rest</span></div>
+              <div class="fh-row"><code>%</code><span>Repeat previous bar</span></div>
+            </div>
+          </div>
+
+          <div class="fh-group">
+            <div class="fh-group-title">Repeats</div>
+            <div class="fh-rows">
+              <div class="fh-row"><code>C | Am | F | G x4</code><span>Adds a ×4 badge on that row</span></div>
+              <div class="fh-row"><code>C Bb F x2</code><span>Works on any row</span></div>
+            </div>
+          </div>
+
+          <div class="fh-group">
+            <div class="fh-group-title">Annotations</div>
+            <div class="fh-rows">
+              <div class="fh-row"><code>C(stab)</code> <code>G(stab)</code><span>Per-chord tag pill — under each note</span></div>
+              <div class="fh-row"><code>C | Am | F | G | break</code><span>Row-end badge — at the right of the row</span></div>
+              <div class="fh-row"><code>[BUILD]</code> on its own line<span>Full-width strip between rows</span></div>
+              <div class="fh-tags">
+                <span class="fh-tag fh-tag-stab">stab</span>
+                <span class="fh-tag fh-tag-break">break</span>
+                <span class="fh-tag fh-tag-build">build</span>
+                <span class="fh-tag fh-tag-choke">choke</span>
+                <span class="fh-tag fh-tag-sustain">sustain</span>
+                <span class="fh-tag fh-tag-fill">fill</span>
+                <span class="fh-tag fh-tag-stop">stop</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="fh-group">
+            <div class="fh-group-title">Example</div>
+            <pre>[in]
+C F | Dm G x2
+
+[V - Anjali]
+Am | F G | Am | F C/E | break
+G | C(stab)/E F(stab) G(stab) x4
+[BUILD]
+
+[C]
+C(stab) G(stab) | F | G | sustain</pre>
+          </div>
+
         </div>
 
         <textarea
@@ -258,6 +314,56 @@ C | D | G  | G"></textarea>
 
 </div><!-- #app -->
 
+  <!-- ╔════════════════════════════════════════════════════════
+       SET LISTS MANAGER VIEW
+  ═══════════════════════════════════════════════════════╗ -->
+  <div id="view-setlists" class="view hidden">
+    <header class="top-bar">
+      <button id="btn-back-setlists" class="icon-btn" title="Back">&#8592;</button>
+      <h2 class="page-title">Set Lists</h2>
+      <div class="header-actions">
+        <button id="btn-add-setlist" class="save-btn">+ New</button>
+      </div>
+    </header>
+
+    <div id="setlist-list" class="setlist-list"></div>
+    <div id="setlist-empty" class="empty-state hidden">
+      <div class="empty-icon">&#128203;</div>
+      <p>No set lists yet.</p>
+      <p class="empty-sub">Tap <strong>+ New</strong> to build your first set.</p>
+    </div>
+  </div>
+
+  <!-- ╔════════════════════════════════════════════════════════
+       SET LIST EDITOR VIEW
+  ═══════════════════════════════════════════════════════╗ -->
+  <div id="view-setlist-editor" class="view hidden">
+    <header class="top-bar">
+      <button id="btn-back-setlist-editor" class="icon-btn" title="Back">&#8592;</button>
+      <h2 id="setlist-editor-title" class="page-title">New Set List</h2>
+      <div class="header-actions">
+        <button id="btn-save-setlist" class="save-btn">Save</button>
+      </div>
+    </header>
+
+    <div class="editor-form">
+      <div class="form-group">
+        <label for="input-setlist-name">Set List Name <span class="required">*</span></label>
+        <input type="text" id="input-setlist-name" placeholder="e.g. Summer Gig 2026" autocomplete="off" />
+      </div>
+      <div class="form-group">
+        <label for="input-setlist-gig">Gig Tag <span class="tag-hint">(optional)</span></label>
+        <input type="text" id="input-setlist-gig" placeholder="e.g. Summer Gig 2026-06-14" autocomplete="off" />
+      </div>
+      <div class="form-group">
+        <label for="setlist-song-search">Songs</label>
+        <input type="search" id="setlist-song-search" placeholder="Search to add a song…" autocomplete="off" />
+      </div>
+      <div id="setlist-song-results" class="setlist-song-results hidden"></div>
+      <div id="setlist-editor-songs" class="setlist-editor-songs"></div>
+    </div>
+  </div>
+
 <!-- ═══════════════════════════════════════════════════════
      DELETE CONFIRM MODAL
 ════════════════════════════════════════════════════════ -->
@@ -271,6 +377,9 @@ C | D | G  | G"></textarea>
     </div>
   </div>
 </div>
+
+<!-- Toast notification -->
+<div id="toast" class="toast hidden" aria-live="polite"></div>
 
 <script type="module" src="/js/app.js"></script>
 </body>

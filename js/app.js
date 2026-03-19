@@ -5,7 +5,7 @@
  * State is kept in a plain object; UI is re-rendered on change.
  */
 import { transposeChord, getTranspositionContext, semitonesBetweenKeys, ALL_DISPLAY_KEYS } from './chords.js';
-import { Storage } from './storage.js';
+import { Storage, SetListStorage } from './storage.js';
 
 /* ════════════════════════════════════════════════════════════
    STATE
@@ -25,6 +25,11 @@ const state = {
   activeGigs:      new Set(),   // selected gig filter pills
   // Editor gig tag staging
   editorGigTags:   [],
+  // Set list
+  activeSetListId:  null,   // id of set list currently being performed
+  setListPosition:  0,      // current song index within the set list
+  editingSetListId: null,   // null = new set list
+  editorSetListSongs: [],   // staging array of song ids (ordered)
 };
 
 /* ════════════════════════════════════════════════════════════
@@ -196,6 +201,12 @@ function renderFilterBar() {
    SONG VIEW
 ════════════════════════════════════════════════════════════ */
 function openSong(id) {
+  // Clear any active set list context
+  if (state.activeSetListId) {
+    state.activeSetListId = null;
+    state.setListPosition = 0;
+    document.getElementById('setlist-nav-bar').classList.add('hidden');
+  }
   const song = Storage.get(id);
   if (!song) return;
   state.currentSongId = id;
@@ -261,25 +272,63 @@ function renderSongView(song) {
 
 /* ════════════════════════════════════════════════════════════
    CHORD SHEET PARSER
-   
+
    Format:
-     [Section Name]     ← section header
-     C | Am | F | G     ← one row of bars, '|' = bar line
-     spaces in a bar    ← multiple chords within that bar
+     [Section Name]         ← section header
+     [V - Song Title]       ← section with mash-up subtitle
+     [BREAK] / [BUILD] …    ← annotation strip (not a new section)
+     C | Am | F | G         ← one row of bars, '|' = bar line
+     C | Am | F | G x4      ← row with ×4 repeat badge
+     spaces in a bar        ← multiple chords within that bar
+
+   Section abbreviations (case-insensitive):
+     in / i → INTRO   v → VERSE   c → CHORUS   b → BRIDGE
+     o → OUTRO        d → D       pc → PRE-CHORUS
 ════════════════════════════════════════════════════════════ */
+const SECTION_ABBREVS = {
+  'in': 'INTRO', 'i': 'INTRO',
+  'v':  'VERSE', 'c': 'CHORUS',
+  'b':  'BRIDGE', 'o': 'OUTRO',
+  'd':  'D', 'pc': 'PRE-CHORUS',
+};
+
+const ANNOTATION_MARKERS = new Set([
+  'BREAK', 'CHOKE', 'BUILD', 'STAB', 'SUSTAIN', 'FILL', 'STOP',
+]);
+
 function parseChordSheet(text) {
-  /** @type {Array<{name:string, rows:Array<Array<string[]>>}>} */
+  /** @type {Array<{name:string, displayName:string, subtitle:string, rows:Array}>} */
   const sections = [];
   let   section  = null;
 
   for (const rawLine of (text || '').split('\n')) {
-    const line = rawLine.trimEnd();
+    const line    = rawLine.trimEnd();
     const trimmed = line.trim();
 
-    // Section header: [Verse], [Chorus], etc.
+    // Lines starting with '[' — section header OR annotation marker
     if (trimmed.startsWith('[') && trimmed.includes(']')) {
-      const name = trimmed.slice(1, trimmed.indexOf(']')).trim();
-      section = { name, rows: [] };
+      const inner = trimmed.slice(1, trimmed.indexOf(']')).trim();
+
+      // Annotation markers: [BREAK], [BUILD], [STAB], [CHOKE], [SUSTAIN] …
+      if (ANNOTATION_MARKERS.has(inner.toUpperCase())) {
+        if (!section) {
+          section = { name: '', displayName: '', subtitle: '', rows: [] };
+          sections.push(section);
+        }
+        section.rows.push({ type: 'annotation', marker: inner.toUpperCase() });
+        continue;
+      }
+
+      // Section header — parse optional " - Song Title" subtitle
+      let rawName  = inner;
+      let subtitle = '';
+      const dashIdx = inner.indexOf(' - ');
+      if (dashIdx !== -1) {
+        rawName  = inner.slice(0, dashIdx).trim();
+        subtitle = inner.slice(dashIdx + 3).trim();
+      }
+      const displayName = SECTION_ABBREVS[rawName.toLowerCase()] || rawName;
+      section = { name: rawName, displayName, subtitle, rows: [] };
       sections.push(section);
       continue;
     }
@@ -289,22 +338,46 @@ function parseChordSheet(text) {
 
     // Chord row — create a default section if none exists yet
     if (!section) {
-      section = { name: '', rows: [] };
+      section = { name: '', displayName: '', subtitle: '', rows: [] };
       sections.push(section);
     }
 
+    // Detect trailing repeat count: "x4" or "(x4)"
+    let repeat  = null;
+    let barText = trimmed;
+    const repeatMatch = trimmed.match(/\s+\(?x(\d+)\)?$/i);
+    if (repeatMatch) {
+      repeat  = parseInt(repeatMatch[1], 10);
+      barText = trimmed.slice(0, trimmed.length - repeatMatch[0].length).trimEnd();
+    }
+
     // Split into bars by '|'
-    const bars = trimmed.split('|').map(barStr => {
-      const chords = barStr.trim().split(/\s+/).filter(Boolean);
-      return chords.length > 0 ? chords : ['-'];
+    const rawBars = barText.split('|').map(s => s.trim()).filter(s => s.length > 0);
+
+    // If last segment is a lone annotation keyword → row-end badge (not a new strip line)
+    let rowAnnotation = null;
+    if (rawBars.length > 0 && ANNOTATION_MARKERS.has(rawBars[rawBars.length - 1].toUpperCase())) {
+      rowAnnotation = rawBars.pop().toUpperCase();
+    }
+
+    const bars = rawBars.map(barStr => {
+      const tokens = barStr.split(/\s+/).filter(Boolean);
+      if (tokens.length === 0) return [{ chord: '-', tag: null }];
+      return tokens.map(parseChordToken);
     });
 
     if (bars.length > 0) {
-      section.rows.push(bars);
+      section.rows.push({ type: 'bars', bars, repeat, rowAnnotation });
     }
   }
 
   return sections;
+}
+
+/** Parse a chord token that may carry an inline annotation: C(stab) → {chord:'C', tag:'stab'} */
+function parseChordToken(token) {
+  const m = token.match(/^(.+?)\(([a-zA-Z]+)\)$/);
+  return m ? { chord: m[1], tag: m[2].toLowerCase() } : { chord: token, tag: null };
 }
 
 /* ════════════════════════════════════════════════════════════
@@ -318,25 +391,47 @@ function buildChordSheetHTML(sections, semitones, originalKey, useFlats) {
   let barCounter = 1;
 
   return sections.map(section => {
-    const titleHTML = section.name
-      ? `<div class="section-title"><span>${esc(section.name.toUpperCase())}</span></div>`
+    const label = (section.displayName || section.name || '').toUpperCase();
+    const titleHTML = label
+      ? `<div class="section-title">
+           <span>${esc(label)}</span>
+           ${section.subtitle ? `<span class="section-subtitle">${esc(section.subtitle)}</span>` : ''}
+         </div>`
       : '';
 
     const rowsHTML = section.rows.map(row => {
-      const barsHTML = row.map(bar => {
-        const barNum = barCounter++;
-        const slotsHTML = bar.map(chord => {
+      // Annotation strip: [BREAK], [BUILD], [STAB] etc.
+      if (row.type === 'annotation') {
+        return `<div class="annotation-strip annotation-${row.marker.toLowerCase()}">${row.marker}</div>`;
+      }
+
+      // Bar row (support both new {type,bars,repeat} shape and legacy plain array)
+      const bars = row.bars ?? row;
+      const barsHTML = bars.map(bar => {
+        const barNum    = barCounter++;
+        const slotsHTML = bar.map(item => {
+          // Support {chord, tag} objects (new) and plain strings (legacy)
+          const chord = typeof item === 'string' ? item : item.chord;
+          const tag   = typeof item === 'string' ? null  : item.tag;
           const transposed = transposeChord(chord, semitones, useFlats);
           const isRest   = chord === '-';
           const isRepeat = chord === '%';
           const cls = isRest   ? 'chord-slot chord-rest'
                     : isRepeat ? 'chord-slot chord-repeat'
                     : 'chord-slot';
-          return `<span class="${cls}">${esc(transposed)}</span>`;
+          const tagHTML = tag ? `<span class="chord-tag chord-tag-${esc(tag)}">${esc(tag)}</span>` : '';
+          return `<span class="${cls}">${esc(transposed)}${tagHTML}</span>`;
         }).join('');
         return `<div class="bar"><span class="bar-num">${barNum}</span>${slotsHTML}</div>`;
       }).join('');
-      return `<div class="bars-row">${barsHTML}</div>`;
+
+      const repeatBadge = row.repeat
+        ? `<span class="repeat-badge">×${row.repeat}</span>`
+        : '';
+      const rowAnnotBadge = row.rowAnnotation
+        ? `<span class="row-annot row-annot-${row.rowAnnotation.toLowerCase()}">${row.rowAnnotation}</span>`
+        : '';
+      return `<div class="bars-row">${barsHTML}${repeatBadge}${rowAnnotBadge}</div>`;
     }).join('');
 
     return `<div class="section-block">${titleHTML}${rowsHTML}</div>`;
@@ -503,9 +598,259 @@ function removeEditorGigTag(idx) {
 }
 
 /* ════════════════════════════════════════════════════════════
+   EXPORT / IMPORT
+════════════════════════════════════════════════════════════ */
+function exportSongs() {
+  const songs   = Storage.getAll();
+  const payload = JSON.stringify({ version: 1, exportedAt: new Date().toISOString(), songs }, null, 2);
+  const blob    = new Blob([payload], { type: 'application/json' });
+  const url     = URL.createObjectURL(blob);
+  const a       = document.createElement('a');
+  a.href        = url;
+  a.download    = `ChordBook-${new Date().toISOString().slice(0, 10)}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast(`Exported ${songs.length} song${songs.length !== 1 ? 's' : ''}`);
+}
+
+function importSongsFromFile(file) {
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const raw      = JSON.parse(e.target.result);
+      const incoming = Array.isArray(raw) ? raw : (raw.songs || []);
+      if (!incoming.length) { showToast('No songs found in file', 'error'); return; }
+
+      const existingIds = new Set(Storage.getAll().map(s => s.id));
+      let added = 0, skipped = 0;
+
+      incoming.forEach(song => {
+        if (!song.id || !song.title) return;
+        if (existingIds.has(song.id)) { skipped++; return; }
+        song.bands     = song.bands    || [];
+        song.gigTags   = song.gigTags  || [];
+        song.createdAt = song.createdAt || new Date().toISOString();
+        song.updatedAt = song.updatedAt || new Date().toISOString();
+        Storage.save(song);
+        added++;
+      });
+
+      state.songs = Storage.getAll();
+      renderLibrary();
+      showToast(
+        `Imported ${added} song${added !== 1 ? 's' : ''}` +
+        (skipped ? ` · ${skipped} already existed` : '')
+      );
+    } catch {
+      showToast('Invalid file — could not read JSON', 'error');
+    }
+  };
+  reader.readAsText(file);
+}
+
+let _toastTimer = null;
+function showToast(msg, type = 'success') {
+  const el    = document.getElementById('toast');
+  el.textContent = msg;
+  el.className   = `toast toast-${type}`;
+  el.classList.remove('hidden');
+  clearTimeout(_toastTimer);
+  _toastTimer = setTimeout(() => el.classList.add('hidden'), 3500);
+}
+
+/* ════════════════════════════════════════════════════════════
+   SET LISTS — MANAGER VIEW
+════════════════════════════════════════════════════════════ */
+function renderSetLists() {
+  showView('setlists');
+  const setLists = SetListStorage.getAll();
+  const listEl   = document.getElementById('setlist-list');
+  const emptyEl  = document.getElementById('setlist-empty');
+
+  if (!setLists.length) {
+    listEl.innerHTML = '';
+    emptyEl.classList.remove('hidden');
+    return;
+  }
+  emptyEl.classList.add('hidden');
+  listEl.innerHTML = setLists.map(sl => {
+    const count   = (sl.songIds || []).filter(id => Storage.get(id)).length;
+    const gigChip = sl.gigTag
+      ? `<span class="chip chip-gig">${esc(sl.gigTag)}</span>` : '';
+    return `
+      <div class="setlist-card">
+        <div class="setlist-card-body" data-action="play-setlist" data-id="${sl.id}">
+          <div class="setlist-card-main">
+            <div class="setlist-card-name">${esc(sl.name)}</div>
+            <div class="setlist-card-meta">${count} song${count !== 1 ? 's' : ''}${sl.gigTag ? ' · ' + esc(sl.gigTag) : ''}</div>
+          </div>
+          ${gigChip}
+        </div>
+        <div class="song-card-btns">
+          <button class="card-btn" data-action="edit-setlist"   data-id="${sl.id}" title="Edit">✏️</button>
+          <button class="card-btn del" data-action="delete-setlist" data-id="${sl.id}" title="Delete">🗑️</button>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+/* ── Set list performance mode ───────────────────────────────────────────── */
+function openSetListPlay(id) {
+  const sl = SetListStorage.get(id);
+  if (!sl || !sl.songIds.length) { showToast('Set list has no songs', 'error'); return; }
+  state.activeSetListId = id;
+  state.setListPosition = 0;
+  _showSetListSong();
+}
+
+function navigateSetList(delta) {
+  const sl    = SetListStorage.get(state.activeSetListId);
+  if (!sl) return;
+  const valid = (sl.songIds || []).filter(id => Storage.get(id));
+  state.setListPosition = Math.max(0, Math.min(valid.length - 1, state.setListPosition + delta));
+  _showSetListSong();
+}
+
+function _showSetListSong() {
+  const sl    = SetListStorage.get(state.activeSetListId);
+  if (!sl) return;
+  const valid = (sl.songIds || []).filter(id => Storage.get(id));
+  const song  = Storage.get(valid[state.setListPosition]);
+  if (!song) return;
+
+  state.currentSongId = song.id;
+  state.transpose     = 0;
+  state.chordSize     = 1.6;
+  renderSongView(song);
+  showView('song');
+
+  // Update nav bar
+  const navBar = document.getElementById('setlist-nav-bar');
+  navBar.classList.remove('hidden');
+  document.getElementById('setlist-nav-label').textContent =
+    `${state.setListPosition + 1} / ${valid.length}`;
+  document.getElementById('btn-setlist-prev').disabled = state.setListPosition === 0;
+  document.getElementById('btn-setlist-next').disabled = state.setListPosition === valid.length - 1;
+}
+
+function exitSetList() {
+  state.activeSetListId = null;
+  state.setListPosition = 0;
+  document.getElementById('setlist-nav-bar').classList.add('hidden');
+  renderSetLists();
+}
+
+/* ── Set list editor ─────────────────────────────────────────────────────── */
+function openSetListEditor(id = null) {
+  state.editingSetListId = id;
+  if (id) {
+    const sl = SetListStorage.get(id);
+    if (!sl) return;
+    document.getElementById('setlist-editor-title').textContent = 'Edit Set List';
+    document.getElementById('input-setlist-name').value         = sl.name    || '';
+    document.getElementById('input-setlist-gig').value          = sl.gigTag  || '';
+    state.editorSetListSongs = [...(sl.songIds || [])];
+  } else {
+    document.getElementById('setlist-editor-title').textContent = 'New Set List';
+    document.getElementById('input-setlist-name').value         = '';
+    document.getElementById('input-setlist-gig').value          = '';
+    state.editorSetListSongs = [];
+  }
+  document.getElementById('setlist-song-search').value = '';
+  document.getElementById('setlist-song-results').classList.add('hidden');
+  renderSetListEditorSongs();
+  showView('setlist-editor');
+  document.getElementById('input-setlist-name').focus();
+}
+
+function renderSetListEditorSongs() {
+  const container = document.getElementById('setlist-editor-songs');
+  if (!state.editorSetListSongs.length) {
+    container.innerHTML = '<p class="setlist-editor-empty-hint">No songs yet — search above to add.</p>';
+    return;
+  }
+  container.innerHTML = state.editorSetListSongs.map((id, i) => {
+    const song    = Storage.get(id);
+    if (!song) return '';
+    const isFirst = i === 0;
+    const isLast  = i === state.editorSetListSongs.length - 1;
+    return `
+      <div class="setlist-song-item">
+        <span class="setlist-song-num">${i + 1}</span>
+        <div class="setlist-song-info">
+          <span class="setlist-song-title">${esc(song.title)}</span>
+          <span class="setlist-song-artist">${esc(song.artist || '')}</span>
+        </div>
+        <div class="setlist-song-controls">
+          <button class="setlist-song-btn" data-move="-1" data-idx="${i}" title="Move up"   ${isFirst ? 'disabled' : ''}>↑</button>
+          <button class="setlist-song-btn" data-move="1"  data-idx="${i}" title="Move down" ${isLast  ? 'disabled' : ''}>↓</button>
+          <button class="setlist-song-btn remove" data-remove="${i}" title="Remove">✕</button>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function searchSetListSongs(query) {
+  const q         = query.trim().toLowerCase();
+  const resultsEl = document.getElementById('setlist-song-results');
+  if (!q) { resultsEl.classList.add('hidden'); return; }
+
+  const matches = state.songs
+    .filter(s => s.title.toLowerCase().includes(q) || (s.artist || '').toLowerCase().includes(q))
+    .slice(0, 8);
+
+  if (!matches.length) {
+    resultsEl.innerHTML = '<p class="setlist-no-results">No songs found</p>';
+    resultsEl.classList.remove('hidden');
+    return;
+  }
+  resultsEl.innerHTML = matches.map(s => {
+    const already = state.editorSetListSongs.includes(s.id);
+    return `<button class="setlist-result-item${already ? ' already-added' : ''}"
+                    data-add-song="${s.id}"${already ? ' disabled' : ''}>
+              <span class="setlist-result-title">${esc(s.title)}</span>
+              <span class="setlist-result-artist">${esc(s.artist || '')}</span>
+              ${already ? '<span class="setlist-result-badge">✓</span>' : ''}
+            </button>`;
+  }).join('');
+  resultsEl.classList.remove('hidden');
+}
+
+function saveSetList() {
+  const name = document.getElementById('input-setlist-name').value.trim();
+  if (!name) {
+    const inp = document.getElementById('input-setlist-name');
+    inp.focus();
+    inp.classList.add('shake');
+    setTimeout(() => inp.classList.remove('shake'), 500);
+    return;
+  }
+  const existing = state.editingSetListId ? SetListStorage.get(state.editingSetListId) : null;
+  const setlist  = {
+    id:        state.editingSetListId || SetListStorage.generateId(),
+    name,
+    gigTag:    document.getElementById('input-setlist-gig').value.trim() || null,
+    songIds:   [...state.editorSetListSongs],
+    createdAt: existing?.createdAt || new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+  SetListStorage.save(setlist);
+  showToast(`"${name}" saved`);
+  renderSetLists();
+}
+
+/* ════════════════════════════════════════════════════════════
    DELETE
 ════════════════════════════════════════════════════════════ */
 function confirmDelete(id) {
+  if (id.startsWith('setlist:')) {
+    const sl = SetListStorage.get(id.slice(8));
+    if (!sl) return;
+    state.pendingDeleteId = id;
+    document.getElementById('modal-message').textContent = `Delete set list "${sl.name}"? This cannot be undone.`;
+    document.getElementById('modal-backdrop').classList.remove('hidden');
+    return;
+  }
   const song = Storage.get(id);
   if (!song) return;
   state.pendingDeleteId = id;
@@ -515,12 +860,18 @@ function confirmDelete(id) {
 }
 
 function executeDelete() {
-  if (state.pendingDeleteId) {
-    Storage.delete(state.pendingDeleteId);
-    state.songs = Storage.getAll();
+  if (!state.pendingDeleteId) return;
+  if (state.pendingDeleteId.startsWith('setlist:')) {
+    SetListStorage.delete(state.pendingDeleteId.slice(8));
     state.pendingDeleteId = null;
     closeModal();
-    state.currentSongId = null;
+    renderSetLists();
+  } else {
+    Storage.delete(state.pendingDeleteId);
+    state.songs         = Storage.getAll();
+    state.pendingDeleteId = null;
+    state.currentSongId   = null;
+    closeModal();
     renderLibrary();
   }
 }
@@ -612,7 +963,17 @@ function setupEventListeners() {
 
   /* ── Song view ────────────────────────────────────────────── */
   document.getElementById('btn-back-song')
-    .addEventListener('click', () => { state.searchQuery = ''; renderLibrary(); });
+    .addEventListener('click', () => {
+      state.searchQuery = '';
+      if (state.activeSetListId) {
+        state.activeSetListId = null;
+        state.setListPosition = 0;
+        document.getElementById('setlist-nav-bar').classList.add('hidden');
+        renderSetLists();
+      } else {
+        renderLibrary();
+      }
+    });
 
   document.getElementById('btn-edit-song')
     .addEventListener('click', () => {
@@ -692,7 +1053,19 @@ function setupEventListeners() {
   /* ── Keyboard shortcuts ──────────────────────────────────── */
   document.addEventListener('keydown', e => {
     if (state.view === 'song') {
-      if (e.key === 'Escape')                      { state.searchQuery = ''; renderLibrary(); }
+      if (e.key === 'Escape') {
+        state.searchQuery = '';
+        if (state.activeSetListId) {
+          state.activeSetListId = null;
+          state.setListPosition = 0;
+          document.getElementById('setlist-nav-bar').classList.add('hidden');
+          renderSetLists();
+        } else {
+          renderLibrary();
+        }
+      }
+      if (e.key === 'ArrowLeft'  && state.activeSetListId) { e.preventDefault(); navigateSetList(-1); }
+      if (e.key === 'ArrowRight' && state.activeSetListId) { e.preventDefault(); navigateSetList(+1); }
       if (e.key === 'ArrowUp'   && e.altKey)       { e.preventDefault(); shiftTranspose(+1); }
       if (e.key === 'ArrowDown' && e.altKey)       { e.preventDefault(); shiftTranspose(-1); }
       if (e.key === 'r'         && e.altKey)       { e.preventDefault(); resetTranspose(); }
@@ -705,10 +1078,96 @@ function setupEventListeners() {
       if (e.key === 'Escape')                         { document.getElementById('btn-back-editor').click(); }
       if (e.key === 's' && (e.metaKey || e.ctrlKey))  { e.preventDefault(); saveSong(); }
     }
+    if (state.view === 'setlists') {
+      if (e.key === 'Escape') renderLibrary();
+    }
+    if (state.view === 'setlist-editor') {
+      if (e.key === 'Escape')                         renderSetLists();
+      if (e.key === 's' && (e.metaKey || e.ctrlKey))  { e.preventDefault(); saveSetList(); }
+    }
     if (e.key === 'Escape' && !document.getElementById('modal-backdrop').classList.contains('hidden')) {
       closeModal();
     }
   });
+
+  /* ── Export / Import ─────────────────────────────────────── */
+  document.getElementById('btn-export')
+    .addEventListener('click', exportSongs);
+  document.getElementById('btn-import-trigger')
+    .addEventListener('click', () => document.getElementById('input-import-file').click());
+  document.getElementById('input-import-file')
+    .addEventListener('change', e => {
+      const file = e.target.files[0];
+      if (file) { importSongsFromFile(file); e.target.value = ''; }
+    });
+
+  /* ── Set Lists — manager ─────────────────────────────────── */
+  document.getElementById('btn-setlists')
+    .addEventListener('click', renderSetLists);
+
+  document.getElementById('btn-back-setlists')
+    .addEventListener('click', renderLibrary);
+
+  document.getElementById('btn-add-setlist')
+    .addEventListener('click', () => openSetListEditor());
+
+  document.getElementById('setlist-list')
+    .addEventListener('click', e => {
+      const playEl = e.target.closest('[data-action="play-setlist"]');
+      if (playEl)   { openSetListPlay(playEl.dataset.id); return; }
+      const editEl = e.target.closest('[data-action="edit-setlist"]');
+      if (editEl)   { openSetListEditor(editEl.dataset.id); return; }
+      const delEl  = e.target.closest('[data-action="delete-setlist"]');
+      if (delEl)    { confirmDelete(`setlist:${delEl.dataset.id}`); }
+    });
+
+  /* ── Set Lists — editor ──────────────────────────────────── */
+  document.getElementById('btn-back-setlist-editor')
+    .addEventListener('click', renderSetLists);
+
+  document.getElementById('btn-save-setlist')
+    .addEventListener('click', saveSetList);
+
+  document.getElementById('setlist-song-search')
+    .addEventListener('input', e => searchSetListSongs(e.target.value));
+
+  document.getElementById('setlist-song-results')
+    .addEventListener('click', e => {
+      const btn = e.target.closest('[data-add-song]');
+      if (!btn || btn.disabled) return;
+      state.editorSetListSongs.push(btn.dataset.addSong);
+      renderSetListEditorSongs();
+      searchSetListSongs(document.getElementById('setlist-song-search').value);
+    });
+
+  document.getElementById('setlist-editor-songs')
+    .addEventListener('click', e => {
+      const moveBtn = e.target.closest('[data-move]');
+      if (moveBtn) {
+        const idx    = parseInt(moveBtn.dataset.idx, 10);
+        const newIdx = idx + parseInt(moveBtn.dataset.move, 10);
+        if (newIdx >= 0 && newIdx < state.editorSetListSongs.length) {
+          [state.editorSetListSongs[idx], state.editorSetListSongs[newIdx]] =
+          [state.editorSetListSongs[newIdx], state.editorSetListSongs[idx]];
+          renderSetListEditorSongs();
+        }
+        return;
+      }
+      const removeBtn = e.target.closest('[data-remove]');
+      if (removeBtn) {
+        state.editorSetListSongs.splice(parseInt(removeBtn.dataset.remove, 10), 1);
+        renderSetListEditorSongs();
+        searchSetListSongs(document.getElementById('setlist-song-search').value);
+      }
+    });
+
+  /* ── Set list nav bar (inside song view) ─────────────────── */
+  document.getElementById('btn-setlist-prev')
+    .addEventListener('click', () => navigateSetList(-1));
+  document.getElementById('btn-setlist-next')
+    .addEventListener('click', () => navigateSetList(+1));
+  document.getElementById('btn-setlist-exit')
+    .addEventListener('click', exitSetList);
 }
 
 /* ════════════════════════════════════════════════════════════
