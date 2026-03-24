@@ -282,6 +282,313 @@ Ebmaj7 | Cm7 | Fm7 | Bb7`,
         createdAt: now,
         updatedAt: now,
       },
+
+      // ── Golden Hour Collective songs ──────────────────────────
+      {
+        id: 'mn4akz59qc52j',
+        title: 'Pookal Pookum',
+        artist: 'Narendran Arrangement',
+        key: 'C',
+        timeSignature: '4/4',
+        tempo: 94,
+        notes: 'Performing in Em',
+        bands: ['Golden Hour Collective'],
+        gigTags: ['24 March 2026'],
+        chordSheet:
+`[Intro Guitar Keys Pads]
+Cm | Bb | Ab | Gm x2
+
+[Keys Melody]
+Cm | Bb | Ab | Gm x2
+
+[V]
+Cm | Gm | Cm | G Bb x2
+
+Cm | Fm | Cm Eb | Bb Gm
+[Strings Buildup]
+Cm | Fm | Cm Eb | Bb Gm
+
+Ab | Bb | Ab | Bb
+
+Cm | Gm | Ab | Gm
+
+Bb | Ab | Eb | Eb
+
+[Pookal Pookum]
+Cm | Gm | Cm | Gm x2
+[Strings Buildup]
+Ab | Gm | Ab | Bb x2
+Bb Sustain
+
+[Intro with Melody keys]
+Cm | Bb | Ab | Gm x2`,
+        createdAt: '2026-03-24T07:27:23.375Z',
+        updatedAt: '2026-03-24T07:29:10.123Z',
+      },
+      {
+        id: 'mn4ccbg3kldhc',
+        title: 'Sai Pallavi Intro',
+        artist: 'G V Prakash',
+        key: 'D',
+        timeSignature: '4/4',
+        tempo: null,
+        notes: '',
+        bands: ['Golden Hour Collective'],
+        gigTags: ['24 March 2026'],
+        chordSheet:
+`[Intro Guitar]
+Dm | Bm | G | A | Break
+
+[Theme]
+Dm | Bm | G | A
+Dm | A/C# | Bm | A
+
+Dm`,
+        createdAt: '2026-03-24T08:16:38.644Z',
+        updatedAt: '2026-03-24T08:17:46.942Z',
+      },
+      {
+        id: 'mn4d0fy3q5ras',
+        title: 'Pani Vizhum',
+        artist: '',
+        key: 'D',
+        timeSignature: '4/4',
+        tempo: null,
+        notes: '',
+        bands: ['Golden Hour Collective'],
+        gigTags: ['24 March 2026'],
+        chordSheet:
+`[Guitar Intro]
+Dm
+[Violin - Keys Follow up melody Synth]
+D5 | D5 | D5 | D5
+G | D | F | D5 x2
+D5 | D5 | D5 | D5 | Break
+
+[Pani Vizhum]
+D5 | D5 | D5 | D5
+G | D | F | D5 x2
+D5 | D5 | D5 | D5 |
+
+[Keys Interlude]
+D5 x8
+
+[V]
+D | F | D | F x 2
+D | A/C# | F | D7 x 2
+D | D (rest)| (rest) F F |`,
+        createdAt: '2026-03-24T08:35:24.219Z',
+        updatedAt: '2026-03-24T08:38:51.376Z',
+      },
+      {
+        id: 'mn4dird49p5n1',
+        title: 'Narumugaye',
+        artist: 'Unnikrishnan, ARR',
+        key: 'D',
+        timeSignature: '4/4',
+        tempo: null,
+        notes: 'Played after Pani Vizhum',
+        bands: ['Golden Hour Collective'],
+        gigTags: ['24 March 2026'],
+        chordSheet:
+`[C]
+D | D | D | D
+D | D | D | F G
+
+[V]
+D | D | D |
+D | D | D | F
+F# | F# | F# | F#
+G | Gm | G | D |
+D`,
+        createdAt: '2026-03-24T08:49:38.644Z',
+        updatedAt: '2026-03-24T08:49:57.501Z',
+      },
+      {
+        id: 'mn4dt77ms6fce',
+        title: 'Aval',
+        artist: 'Santosh Narayanan',
+        key: 'D',
+        timeSignature: '4/4',
+        tempo: null,
+        notes: '',
+        bands: ['Golden Hour Collective'],
+        gigTags: ['24 March 2026'],
+        chordSheet:
+`[Intro]
+G | D | A | Bm
+
+[C]
+G | D | A | Bm
+
+[Interlude]
+G | D | A | Bm
+
+[V]
+Em9 | G | Bm | E7 E
+Em9 | G | Bm | Cmaj7 C7
+
+G | D/F# | Bm | F#7
+G | D/F# | Bm | A
+
+[C]
+G | D | A | Bm`,
+        createdAt: '2026-03-24T08:57:45.922Z',
+        updatedAt: '2026-03-24T09:15:38.577Z',
+      },
+      {
+        id: 'mn4eeuen47eww',
+        title: 'Thendral Vandhu Elangathu',
+        artist: 'Ref. Thaikkudam',
+        key: 'D',
+        timeSignature: '4/4',
+        tempo: null,
+        notes: '',
+        bands: ['Golden Hour Collective'],
+        gigTags: ['24 March 2026'],
+        chordSheet:
+`[Intro]
+Dm riff
+Dm | C | Bbmaj7
+
+[Thendral Vandhu]
+Dm riff
+Dm | C | Bbmaj7
+
+Dm | Am | Dm | Am
+F | Gm | A7
+
+Dm riff
+Dm | C | Bbmaj7
+
+[Verse]
+Dm | C | Bbmaj7
+Dm | Am | Bbmaj7
+Dm | C | Bbmaj7
+Dm | Am | Bbmaj7
+
+Dm | Am | Dm | Am
+Dm | C | C(stab) Bdim(stab) | Bb A7
+
+[C]
+
+[elangadhu Verse]
+F | F | G | G x2
+Dm C | Dm C G
+Dm C | Dm C G
+Dm | Dm | Dm C Am G | F  Am
+
+[Elankathu]
+Dm | Dm | Dm C | Bb C | Bb C x2
+Dm | F G | Dm | F G |
+Dm | Dm | Dm C | Bb C | Bb C x2`,
+        createdAt: '2026-03-24T09:14:35.760Z',
+        updatedAt: '2026-03-24T09:15:23.746Z',
+      },
+      {
+        id: 'mn4fxht1hkllu',
+        title: 'Vaseegara',
+        artist: 'Harris Jayaraj',
+        key: 'E',
+        timeSignature: '4/4',
+        tempo: null,
+        notes: '',
+        bands: ['Golden Hour Collective'],
+        gigTags: ['24 March 2026'],
+        chordSheet:
+`[Intro]
+Em | Bm | C  |D (x2)
+Em | D | Bm | D
+Em | Bm | C | B
+
+[Verse]
+Em (x4)
+Em | Bm | C | D
+Em | Am6/E
+
+[Intro]
+Em | Bm | C  |D (x2)
+Em | D | Bm | D
+Em | Bm | C | B
+
+[Verse]
+Em | Bm | Am | G | G B
+Em | Bm | Am | G | G7
+Em | Bm | C | D
+Em | D | Am | B`,
+        createdAt: '2026-03-24T09:57:05.509Z',
+        updatedAt: '2026-03-24T09:57:35.592Z',
+      },
+      {
+        id: 'mn4gdhrnx69jr',
+        title: 'Kesariya',
+        artist: 'Arjith Singh',
+        key: 'D',
+        timeSignature: '4/4',
+        tempo: null,
+        notes: '',
+        bands: ['Golden Hour Collective'],
+        gigTags: ['24 March 2026'],
+        chordSheet:
+`[Intro]
+D | A x4
+
+[Prechorus]
+D | Bm | G | A x2
+
+[Chorus]
+Gmaj7 | Dmaj7 | Gmaj7 | D D7
+G | D | G | A
+
+[Interlude]
+D | A x4
+
+[Verse]
+Dmaj7 | G | A x2 sustain
+Dmaj7 | G | A`,
+        createdAt: '2026-03-24T10:09:31.955Z',
+        updatedAt: '2026-03-24T10:09:31.955Z',
+      },
+      {
+        id: 'mn4gm5wonfjvi',
+        title: 'Pavizha Mazhai',
+        artist: 'Harishankar',
+        key: 'D',
+        timeSignature: '4/4',
+        tempo: null,
+        notes: '',
+        bands: ['Golden Hour Collective'],
+        gigTags: ['24 March 2026'],
+        chordSheet:
+`[Piano Intro]
+D | G x4
+[Buildup]
+D | A | G | A
+Bm | A | Bm| A Rest
+
+[Poove]
+Dmaj7 | Em7 x2
+
+[Prechorus]
+Bm7 | F#m7 | Gmaj6 | A6 x2
+
+[Chorus]
+Gmaj7 | A | Bm | A
+Bm7 | A | G | F#m7 A
+
+[Interlude]
+Dmaj7 | Em x4
+G | A | Bb A | C Dm | G
+
+[Verse]
+Fadd9 | D | Fadd9 | D
+Am | Dsus4 | Am | Dsus4
+
+A D(stab) | A D(stab) | A E | Asus2 F#m
+A D(stab) | A D(stab) | Gsus2  A`,
+        createdAt: '2026-03-24T10:16:16.488Z',
+        updatedAt: '2026-03-24T10:18:35.907Z',
+      },
     ];
 
     demos.forEach(s => this.save(s));
